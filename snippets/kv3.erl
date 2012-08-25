@@ -1,6 +1,6 @@
 -module(kv3).
 
--export([start/0, set/3, get/2, increment/2]).
+-export([start/0, set/3, fetch/2, increment/2]).
 
 start() ->
     State = init(),
@@ -12,8 +12,8 @@ init() -> dict:new().
 set(Key, Value, Pid) ->
     cast({set, Key, Value}, Pid).
     
-get(Key, Pid) ->
-    call({get, Key}, Pid).
+fetch(Key, Pid) ->
+    call({fetch, Key}, Pid).
 
 increment(Key, Pid) ->
     call({increment, Key}, Pid).
@@ -35,7 +35,7 @@ loop(State) ->
     end,
     loop(NewState).
 
-handle_call({get, Key}, State) ->
+handle_call({fetch, Key}, State) ->
     {ok, Value} = dict:find(Key, State),
     {State, Value};
 handle_call({increment, Key}, State) ->

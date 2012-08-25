@@ -6,13 +6,13 @@ I won't try to fill in all the details, but I'll build up the structure you can 
 ## The Simplest Thing That Works
 
 The place to start is with a very simple service: a key-value store.
-You can set values, you can get values, and that's about it.
+You can set values, you can fetch values, and that's about it.
 We'll use it something like this:
 
 ```erlang
 S = kvstore:start().
 kvstore:set(name, "Colin", S).
-V = kvstore:get(name, S).
+V = kvstore:fetch(name, S).
 ```
 
 Behind the scenes, we're spinning off an Erlang process and sending messages to it.
@@ -27,8 +27,8 @@ start() ->
 set(Key, Value, Pid) ->
     Pid ! {set, Key, Value}.
     
-get(Key, Pid) ->
-    Pid ! {self(), {get, Key}},
+fetch(Key, Pid) ->
+    Pid ! {self(), {fetch, Key}},
     receive Value -> Value end.
 ```
 
@@ -37,7 +37,7 @@ The `loop` function receives these requests, either updates its data or sends ba
 ```erlang
 loop(State) ->
     receive
-        {From, {get, Key}} ->
+        {From, {fetch, Key}} ->
             {ok, Value} = dict:find(Key, State),
             From ! Value,
             loop(State);
@@ -50,7 +50,7 @@ loop(State) ->
 ## Re-plumbing
 
 That's it for a basic, functioning service. Now let's mess with it a bit.
-If we look at the message passing, we see that `set` is a one-way request, and `get` is a two-way request.
+If we look at the message passing, we see that `set` is a one-way request, and `fetch` is a two-way request.
 Let's split that logic out a bit.
 
 ```erlang
@@ -64,7 +64,7 @@ loop(State) ->
     end,
     loop(NewState).
 
-handle_call({get, Key}, State) ->
+handle_call({fetch, Key}, State) ->
     {ok, Value} = dict:find(Key, State),
     {State, Value}.
 
@@ -119,8 +119,8 @@ So now the client functions look like:
 set(Key, Value, Pid) ->
     cast({set, Key, Value}, Pid).
 
-get(Key, Pid) ->
-    call({get, Key}, Pid).
+fetch(Key, Pid) ->
+    call({fetch, Key}, Pid).
 
 increment(Key, Pid) ->
     call({increment, Key}, Pid).
@@ -158,7 +158,7 @@ A set of business logic plugin functions:
 And a set of custom API functions that hide the message format from the outside world:
 
 * `set/3`
-* `get/2`
+* `fetch/2`
 * `increment/2`
 
 They line up sorta like this:
@@ -167,7 +167,7 @@ They line up sorta like this:
   <tr><th> API         </th><th>             Generic </th><th>             Plugin        </th></tr>
   <tr><td>             </td><td>             start/0 </td><td>             init/1        </td></tr>
   <tr><td> set/3       </td><td>             cast/2  </td><td>             handle_cast/2 </td></tr>
-  <tr><td> get/2       </td><td rowspan="2"> call/2  </td><td rowspan="2"> handle_call/2 </td></tr>
+  <tr><td> fetch/2       </td><td rowspan="2"> call/2  </td><td rowspan="2"> handle_call/2 </td></tr>
   <tr><td> increment/2 </td></tr>
   <tr><td>             </td><td>             loop/1  </td><td>                           </td></tr>
 </table>

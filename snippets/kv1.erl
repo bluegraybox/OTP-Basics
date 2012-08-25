@@ -1,6 +1,6 @@
 -module(kv1).
 
--export([start/0, set/3, get/2]).
+-export([start/0, set/3, fetch/2]).
 
 start() ->
     State = dict:new(),
@@ -10,13 +10,13 @@ start() ->
 set(Key, Value, Pid) ->
     Pid ! {set, Key, Value}.
     
-get(Key, Pid) ->
-    Pid ! {self(), {get, Key}},
+fetch(Key, Pid) ->
+    Pid ! {self(), {fetch, Key}},
     receive Value -> Value end.
 
 loop(State) ->
     receive
-        {From, {get, Key}} ->
+        {From, {fetch, Key}} ->
             {ok, Value} = dict:find(Key, State),
             From ! Value,
             loop(State);
