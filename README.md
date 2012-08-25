@@ -1,7 +1,26 @@
-# OTP Basics
+# OTP Basics - gen_server
 
-I'm going to try to sketch out here, as briefly as possible, what you need to know to wrap your head around Erlang's OTP framework.
-I won't try to fill in all the details, but I'll build up the structure you can hang them on.
+This is the first part of an attempt to sketch out Erlang's OTP framework.
+I'm not going to try to explain it in detail.
+I'm just going to look at it from 30,000 feet and talk about the concepts you need to wrap your head around in order to understand it.
+(This is of course as much about me making sure I really understand it.)
+
+The idea is that you'll read this and think, "Oh, ok, I get what they're trying to do here and why it's useful,"
+and then you'll go off and dig into [Erlang and OTP In Action](http://www.amazon.com/Erlang-OTP-Action-Martin-Logan/dp/1933988789/) to get all the details.
+Think of this more as an orientation than a tutorial,
+like taking a few moments with a crudely drawn map and a compass before you unlimber your machete and charge off into the woods.
+
+The name `gen_server` may be a bit misleading.
+While it *is* a framework for writing servers, these are servers in the Erlang sense.
+They're managed processes that handle requests to access to a resource,
+but that resource may well be just a data structure or a socket or something.
+They're mostly very simple and small, fulfilling the role that objects do in OO languages.
+
+Rather than having shared data structures and relying on threads to synchronize their access to them,
+each Erlang data structure is local to a single process, and other processes send it messages to fetch or update its values.
+Only letting one process access the data directly dodges the whole issue of concurrent access.
+That sounds kinda crazy if you're new to it, but Erlang makes it really easy.
+Let me show you how...
 
 ## The Simplest Thing That Works
 
@@ -149,13 +168,13 @@ So now we have a set of generic functions that deal with process spawning and me
 * `call/2`
 * `loop/1`
 
-A set of business logic plugin functions:
+A set of plugin functions to handle the business logic:
 
 * `init/0`
 * `handle_cast`
 * `handle_call`
 
-And a set of custom API functions that hide the message format from the outside world:
+And a set of custom API functions that wrap this up and hide the message passing and formatting from the outside world:
 
 * `set/3`
 * `fetch/2`
@@ -173,9 +192,13 @@ They line up sorta like this:
 </table>
 
 So, it looks like we've got some generic functions that we could take out and put in some kind of reusable framework.
-Oh, no need! **It's already been done**.
-This is pretty much what the OTP `gen_server` provides.
-It's got a couple extra management functions, and a few other variations, but this is the gist of it.
-If you understand what we've done so far, you can understand `gen_server`.
+And lo and behold, that's what `gen_server` has already done.
 
+That's not all it's done, of course.
+With process startup cleanly separated from business logic,
+`gen_server` is able to manage the restart of servers after crashes,
+and gives you tools for configuring that declaratively.
+
+So don't worry, there's plenty more to learn,
+but hopefully this gives you a bit more of a mental framework to hang all those pieces on.
 
