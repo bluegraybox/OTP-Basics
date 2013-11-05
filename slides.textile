@@ -1,0 +1,250 @@
+code-engine: sh
+
+author: Colin MacDonald
+email: colin@bluegraybox.com
+title: Re-deriving gen_server
+footer: 
+subfooter: 
+{% css %}
+.syntaxhighlighter {
+    padding: 0.2em 0 0.2em 1em;
+    margin: 0 0 0 0 !important;
+    width: 100%;
+}
+.syntaxhighlighter table td.code .line {
+    padding: 0 0 0 0 !important;
+}
+.code {
+    background-color: #DDDDDD;
+    padding: 1px;
+}
+.slide h1 {
+    text-align: left;
+    color: #FF6633;
+}
+.codeurl {
+    color: grey;
+    font-style: italic;
+}
+body {
+    color: grey;
+}
+small {
+    color: lightgrey;
+}
+td {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 4px;
+    margin: 4px;
+}
+.author {
+    color: grey;
+    font-style: italic;
+    margin-top: 6em;
+}
+li.none {
+    list-style-type: none;
+}
+a:link, a:visited {
+    color: grey;
+    text-decoration: none;
+}
+.credit, .credit a, .aside {
+    color: #888;
+}
+.credit, .credit a {
+    font-size: medium;
+}
+.error {
+    color: red;
+}
+.bullets.code ul li {
+    text-align: left;
+    padding: 10px 25px;
+}
+{% end %}
+
+
+h1. Re-deriving @gen_server@
+
+h2. The "server" part
+
+
+h1. The Simplest Thing That Works
+
+h2. The interface
+
+{% code lang=erlang line_numbers=false %}
+S = kvstore:start().
+kvstore:set(name, "Colin", S).
+V = kvstore:fetch(name, S).
+{% end %}
+
+
+!SLIDE
+h2. The client functions
+
+{% code lang=erlang line_numbers=false %}
+start() ->
+    State = dict:new(),
+    Handler = fun() -> loop(State) end,
+    spawn(Handler).
+    
+set(Key, Value, Pid) ->
+    Pid ! {set, Key, Value}.
+    
+fetch(Key, Pid) ->
+    Pid ! {self(), {fetch, Key}},
+    receive Value -> Value end.
+{% end %}
+
+
+!SLIDE
+h2. The server process loop
+
+{% code lang=erlang line_numbers=false %}
+loop(State) ->
+    receive
+        {From, {fetch, Key}} ->
+            {ok, Value} = dict:find(Key, State),
+            From ! Value,
+            loop(State);
+        {set, Key, Value} ->
+            NewState = dict:store(Key, Value, State),
+            loop(NewState)
+    end.
+{% end %}
+
+
+h1. Re-plumbing the server
+
+h2. Split up one-way and two-way message handling
+
+{% code lang=erlang line_numbers=false %}
+loop(State) ->
+    receive
+        {From, Message} ->
+            {NewState, Value} = handle_call(Message, State),
+            From ! Value;
+        Message ->
+            NewState = handle_cast(Message, State),
+    end,
+    loop(NewState).
+
+handle_call({fetch, Key}, State) ->
+    {ok, Value} = dict:find(Key, State),
+    {State, Value}.
+
+handle_cast({set, Key, Value}, State) ->
+    dict:store(Key, Value, State).
+{% end %}
+
+
+!SLIDE
+h2. Key points
+* @loop/1@ no longer has to know anything about the message content
+* @handle_call/2@ and @handle_cast/2@ don't know anything about message passing
+** @handle_call/2@ and @handle_cast/2@ are straight functions, so we can test them independently of the message passing
+
+
+!SLIDE
+h2. Add increment function
+{% code lang=erlang line_numbers=false %}
+increment(Key, Pid) ->
+    Pid ! {self(), {increment, Key}},
+    receive Value -> Value end.
+{% end %}
+
+h2. ... and another @handle_call/2@ clause (no change to @loop/1@)
+
+{% code lang=erlang line_numbers=false %}
+handle_call({increment, Key}, State) ->
+    NewState = dict:update_counter(Key, 1, State),
+    {ok, Value} = dict:find(Key, NewState),
+    {NewState, Value};
+{% end %}
+
+
+!SLIDE
+
+h2. New interaction looks like
+
+{% code lang=erlang line_numbers=false %}
+S = kvstore:start().
+kvstore:set(age, 45, S).
+V = kvstore:increment(age, S).
+{% end %}
+
+
+h1. Re-plumbing the client
+
+h2. Split up one-way and two-way message sending
+
+{% code lang=erlang line_numbers=false %}
+cast(Message, Pid) ->
+    Pid ! Message.
+
+call(Message, Pid) ->
+    Pid ! {self(), Message},
+    receive Value -> Value end.
+{% end %}
+
+
+!SLIDE
+
+h2. Re-worked client functions
+
+{% code lang=erlang line_numbers=false %}
+set(Key, Value, Pid) ->
+    cast({set, Key, Value}, Pid).
+
+fetch(Key, Pid) ->
+    call({fetch, Key}, Pid).
+
+increment(Key, Pid) ->
+    call({increment, Key}, Pid).
+{% end %}
+
+
+!SLIDE
+
+h2. Re-work @start/0@
+
+{% code lang=erlang line_numbers=false %}
+start() ->
+    State = init(),
+    Handler = fun() -> loop(State) end,
+    spawn(Handler).
+
+init() -> dict:new().
+{% end %}
+
+
+h1. Taking Stock
+
+* Generic functions: process spawning and message passing
+** @start/0@
+** @cast/2@
+** @call/2@
+** @loop/1@
+* Plugin functions: business logic 
+** @init/0@
+** @handle_cast/2@
+** @handle_call/2@
+* API functions
+** @set/3@
+** @fetch/2@
+** @increment/2@
+
+
+!SLIDE
+
+h2. In a table
+
+|_. API       |_.  Generic |_.  Plugin        |
+| start/0     |    start/0 |    init/1        |
+| set/3       |    cast/2  |    handle_cast/2 |
+| fetch/2     |/2. call/2  |/2. handle_call/2 |
+| increment/2 |
+|             |    loop/1  |                  |
