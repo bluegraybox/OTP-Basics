@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <meta http-equiv="content-type" content="text/html;charset=utf-8"> 
+   <title>Re-deriving gen_server</title>
+
+<meta name="generator" content="Slide Show (S9) 1.2.3 on Ruby 1.9.3 (2012-04-20) [x86_64-linux]">
+<meta name="author"    content="Colin MacDonald" >
+
+<!-- SyntaxHighlighter (sh) style sheet; goes first so we can override styles if needed -->
+<!-- todo: add theme-ing support -->
+<link rel="stylesheet" href="highlighter/shCoreDefault.css">
+
+<!-- S6 style sheet links -->
+<link rel="stylesheet" href="slides.css"  media="projection" id="styleProjection">
+<link rel="stylesheet" href="s6/screen.css"          media="screen" id="styleScreen">
+<link rel="stylesheet" href="s6/print.css"           media="print">
+
+<!-- S6 JS -->
+<script src="s6/jquery.js"></script>
+<script src="s6/jquery.slideshow.js"></script>
+
+<!-- SyntaxHighlighter (sh) machinery -->
+<script src="highlighter/shCore.js"></script>
+
+<!-- SyntaxHighlighter brushes, remove those for languages you don't need --> 
+<script src="highlighter/shBrushAppleScript.js"></script>
+<script src="highlighter/shBrushAS3.js"></script>
+<script src="highlighter/shBrushBash.js"></script>
+<script src="highlighter/shBrushColdFusion.js"></script>
+<script src="highlighter/shBrushCpp.js"></script>
+<script src="highlighter/shBrushCSharp.js"></script>
+<script src="highlighter/shBrushCss.js"></script>
+<script src="highlighter/shBrushDelphi.js"></script>
+<script src="highlighter/shBrushDiff.js"></script>
+<script src="highlighter/shBrushErlang.js"></script>
+<script src="highlighter/shBrushGroovy.js"></script>
+<script src="highlighter/shBrushJavaFX.js"></script>
+<script src="highlighter/shBrushJava.js"></script>
+<script src="highlighter/shBrushJScript.js"></script>
+<script src="highlighter/shBrushPerl.js"></script>
+<script src="highlighter/shBrushPhp.js"></script>
+<script src="highlighter/shBrushPlain.js"></script>
+<script src="highlighter/shBrushPowerShell.js"></script>
+<script src="highlighter/shBrushPython.js"></script>
+<script src="highlighter/shBrushRuby.js"></script>
+<script src="highlighter/shBrushSass.js"></script>
+<script src="highlighter/shBrushScala.js"></script>
+<script src="highlighter/shBrushSql.js"></script>
+<script src="highlighter/shBrushVb.js"></script>
+<script src="highlighter/shBrushXml.js"></script>
+
+
+<script type="text/javascript">
+
+$(document).ready( function() {
+  Slideshow.init();
+  SyntaxHighlighter.all();
+} );
+
+  
+ 
+</script>
+
+<!-- Better Browser Banner for Microsoft Internet Explorer (IE) -->
+<!--[if IE]>
+<script src="s6/jquery.microsoft.js"></script>
+<![endif]-->
+
+
+
+</head>
+<body>
+
+<div class="layout"> 
+  <div id="header"></div>
+  <div id="footer">
+    <h1></h1>
+    <h2></h2>
+  </div>
+</div><!-- layout -->
+
+<div class="presentation">
+   
+<div class='slide '>
+
+<!-- _S9SLIDE_ -->
+<h1>Re-deriving <code>gen_server</code></h1>
+<h2>The &#8220;server&#8221; part</h2>
+
+</div>
+<div class='slide '>
+<!-- _S9SLIDE_ -->
+<h1>The Simplest Thing That Works</h1>
+<h2>The interface</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+S = kvstore:start().
+kvstore:set(name, &quot;Colin&quot;, S).
+V = kvstore:fetch(name, S).
+</pre></div>
+<!-- end code -->
+
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>The client functions</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+start() -&gt;
+    State = dict:new(),
+    Handler = fun() -&gt; loop(State) end,
+    spawn(Handler).
+    
+set(Key, Value, Pid) -&gt;
+    Pid ! {set, Key, Value}.
+    
+fetch(Key, Pid) -&gt;
+    Pid ! {self(), {fetch, Key}},
+    receive Value -&gt; Value end.
+</pre></div>
+<!-- end code -->
+
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>The server process loop</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+loop(State) -&gt;
+    receive
+        {From, {fetch, Key}} -&gt;
+            {ok, Value} = dict:find(Key, State),
+            From ! Value,
+            loop(State);
+        {set, Key, Value} -&gt;
+            NewState = dict:store(Key, Value, State),
+            loop(NewState)
+    end.
+</pre></div>
+<!-- end code -->
+
+
+</div>
+<div class='slide '>
+<!-- _S9SLIDE_ -->
+<h1>Re-plumbing the server</h1>
+<h2>Split up one-way and two-way message handling</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+loop(State) -&gt;
+    receive
+        {From, Message} -&gt;
+            {NewState, Value} = handle_call(Message, State),
+            From ! Value;
+        Message -&gt;
+            NewState = handle_cast(Message, State),
+    end,
+    loop(NewState).
+
+handle_call({fetch, Key}, State) -&gt;
+    {ok, Value} = dict:find(Key, State),
+    {State, Value}.
+
+handle_cast({set, Key, Value}, State) -&gt;
+    dict:store(Key, Value, State).
+</pre></div>
+<!-- end code -->
+
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>Key points</h2>
+<ul>
+	<li><code>loop/1</code> no longer has to know anything about the message content</li>
+	<li><code>handle_call/2</code> and <code>handle_cast/2</code> don&#8217;t know anything about message passing
+	<ul>
+		<li><code>handle_call/2</code> and <code>handle_cast/2</code> are straight functions, so we can test them independently of the message passing</li>
+	</ul></li>
+</ul>
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>Add increment function</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+increment(Key, Pid) -&gt;
+    Pid ! {self(), {increment, Key}},
+    receive Value -&gt; Value end.
+</pre></div>
+<!-- end code -->
+
+<h2>&#8230; and another <code>handle_call/2</code> clause (no change to <code>loop/1</code>)</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+handle_call({increment, Key}, State) -&gt;
+    NewState = dict:update_counter(Key, 1, State),
+    {ok, Value} = dict:find(Key, NewState),
+    {NewState, Value};
+</pre></div>
+<!-- end code -->
+
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>New interaction looks like</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+S = kvstore:start().
+kvstore:set(age, 45, S).
+V = kvstore:increment(age, S).
+</pre></div>
+<!-- end code -->
+
+
+</div>
+<div class='slide '>
+<!-- _S9SLIDE_ -->
+<h1>Re-plumbing the client</h1>
+<h2>Split up one-way and two-way message sending</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+cast(Message, Pid) -&gt;
+    Pid ! Message.
+
+call(Message, Pid) -&gt;
+    Pid ! {self(), Message},
+    receive Value -&gt; Value end.
+</pre></div>
+<!-- end code -->
+
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>Re-worked client functions</h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+set(Key, Value, Pid) -&gt;
+    cast({set, Key, Value}, Pid).
+
+fetch(Key, Pid) -&gt;
+    call({fetch, Key}, Pid).
+
+increment(Key, Pid) -&gt;
+    call({increment, Key}, Pid).
+</pre></div>
+<!-- end code -->
+
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>Re-work <code>start/0</code></h2>
+<!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
+<div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
+start() -&gt;
+    State = init(),
+    Handler = fun() -&gt; loop(State) end,
+    spawn(Handler).
+
+init() -&gt; dict:new().
+</pre></div>
+<!-- end code -->
+
+
+</div>
+<div class='slide '>
+<!-- _S9SLIDE_ -->
+<h1>Taking Stock</h1>
+<ul>
+	<li>Generic functions: process spawning and message passing
+	<ul>
+		<li><code>start/0</code></li>
+		<li><code>cast/2</code></li>
+		<li><code>call/2</code></li>
+		<li><code>loop/1</code></li>
+	</ul></li>
+	<li>Plugin functions: business logic
+	<ul>
+		<li><code>init/0</code></li>
+		<li><code>handle_cast/2</code></li>
+		<li><code>handle_call/2</code></li>
+	</ul></li>
+	<li>API functions
+	<ul>
+		<li><code>set/3</code></li>
+		<li><code>fetch/2</code></li>
+		<li><code>increment/2</code></li>
+	</ul></li>
+</ul>
+</div>
+<div class='slide '>
+<p><!-- _S9SLIDE_  --></p>
+<h2>In a table</h2>
+<table>
+	<tr>
+		<th>API       </th>
+		<th>Generic </th>
+		<th>Plugin        </th>
+	</tr>
+	<tr>
+		<td> start/0     </td>
+		<td>    start/0 </td>
+		<td>    init/1        </td>
+	</tr>
+	<tr>
+		<td> set/3       </td>
+		<td>    cast/2  </td>
+		<td>    handle_cast/2 </td>
+	</tr>
+	<tr>
+		<td> fetch/2     </td>
+		<td rowspan="2">call/2  </td>
+		<td rowspan="2">handle_call/2 </td>
+	</tr>
+	<tr>
+		<td> increment/2 </td>
+	</tr>
+	<tr>
+		<td>             </td>
+		<td>    loop/1  </td>
+		<td>                  </td>
+	</tr>
+</table></div>
+
+
+</div><!-- presentation -->
+</body>
+</html>
