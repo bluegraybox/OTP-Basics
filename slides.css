@@ -97,8 +97,9 @@ p.tiny     { font-size: 82%; }
 .syntaxhighlighter table td.code .line {
     padding: 0 0 0 0 !important;
 }
-.code {
-    background-color: #DDDDDD;
+code, .code {
+    border: 1px solid #ddd;
+    border-radius: 4px;
     padding: 1px;
 }
 .slide h1 {

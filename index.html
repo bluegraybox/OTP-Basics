@@ -172,10 +172,10 @@ handle_cast({set, Key, Value}, State) -&gt;
 <p><!-- _S9SLIDE_  --></p>
 <h2>Key points</h2>
 <ul>
-	<li><code>loop/1</code> no longer has to know anything about the message content</li>
+	<li><code>loop/1</code> doesn&#8217;t know anything about the message content</li>
 	<li><code>handle_call/2</code> and <code>handle_cast/2</code> don&#8217;t know anything about message passing
 	<ul>
-		<li><code>handle_call/2</code> and <code>handle_cast/2</code> are straight functions, so we can test them independently of the message passing</li>
+		<li>we can test them independently of the message passing</li>
 	</ul></li>
 </ul>
 </div>
@@ -190,7 +190,7 @@ increment(Key, Pid) -&gt;
 </pre></div>
 <!-- end code -->
 
-<h2>&#8230; and another <code>handle_call/2</code> clause (no change to <code>loop/1</code>)</h2>
+<p>&#8230; and another <code>handle_call/2</code> clause <em>(no change to <code>loop/1</code>)</em></p>
 <!-- begin code{:lang=>"erlang", :line_numbers=>"false"} -->
 <div class='code'><pre class='brush: erlang toolbar: false gutter: false'>
 handle_call({increment, Key}, State) -&gt;
@@ -298,7 +298,7 @@ init() -&gt; dict:new().
 		<th>Plugin        </th>
 	</tr>
 	<tr>
-		<td> start/0     </td>
+		<td>             </td>
 		<td>    start/0 </td>
 		<td>    init/1        </td>
 	</tr>
@@ -320,7 +320,18 @@ init() -&gt; dict:new().
 		<td>    loop/1  </td>
 		<td>                  </td>
 	</tr>
-</table></div>
+</table>
+
+</div>
+<div class='slide '>
+<!-- _S9SLIDE_ -->
+<h1>What Else?</h1>
+<ul>
+	<li>input validation, error handling</li>
+	<li>process monitoring</li>
+	<li>managed shutdown (<code>terminate/2</code>)</li>
+	<li><code>abcast</code>, <code>multi_call</code></li>
+</ul></div>
 
 
 </div><!-- presentation -->
