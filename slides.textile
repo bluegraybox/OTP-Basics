@@ -14,8 +14,9 @@ subfooter:
 .syntaxhighlighter table td.code .line {
     padding: 0 0 0 0 !important;
 }
-.code {
-    background-color: #DDDDDD;
+code, .code {
+    border: 1px solid #ddd;
+    border-radius: 4px;
     padding: 1px;
 }
 .slide h1 {
@@ -143,9 +144,9 @@ handle_cast({set, Key, Value}, State) ->
 
 !SLIDE
 h2. Key points
-* @loop/1@ no longer has to know anything about the message content
+* @loop/1@ doesn't know anything about the message content
 * @handle_call/2@ and @handle_cast/2@ don't know anything about message passing
-** @handle_call/2@ and @handle_cast/2@ are straight functions, so we can test them independently of the message passing
+** we can test them independently of the message passing
 
 
 !SLIDE
@@ -156,7 +157,7 @@ increment(Key, Pid) ->
     receive Value -> Value end.
 {% end %}
 
-h2. ... and another @handle_call/2@ clause (no change to @loop/1@)
+... and another @handle_call/2@ clause _(no change to @loop/1@)_
 
 {% code lang=erlang line_numbers=false %}
 handle_call({increment, Key}, State) ->
@@ -243,8 +244,16 @@ h1. Taking Stock
 h2. In a table
 
 |_. API       |_.  Generic |_.  Plugin        |
-| start/0     |    start/0 |    init/1        |
+|             |    start/0 |    init/1        |
 | set/3       |    cast/2  |    handle_cast/2 |
 | fetch/2     |/2. call/2  |/2. handle_call/2 |
 | increment/2 |
 |             |    loop/1  |                  |
+
+
+h1. What Else?
+
+* input validation, error handling
+* process monitoring
+* managed shutdown (@terminate/2@)
+* @abcast@, @multi_call@
